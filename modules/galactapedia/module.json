@@ -1,0 +1,159 @@
+{
+  "name": "galactapedia",
+  "description": "Access Star Citizen lore and information from the RSI Galactapedia",
+  "baseUrl": "https://robertsspaceindustries.com",
+  "resources": [
+    {
+      "name": "search",
+      "description": "Search the Galactapedia for articles by keyword",
+      "path": "/galactapedia/search",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": true,
+          "description": "The search term to look for in the Galactapedia"
+        }
+      ],
+      "responseFields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique identifier for the article"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the article"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "description": "URL to the article on the RSI website"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "description": "Tags associated with the article"
+        }
+      ]
+    },
+    {
+      "name": "article",
+      "description": "Retrieve a specific Galactapedia article by ID",
+      "path": "/galactapedia/article/{articleId}",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "articleId",
+          "type": "string",
+          "required": true,
+          "description": "The ID of the article to retrieve"
+        }
+      ],
+      "responseFields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique identifier for the article"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the article"
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "description": "Full text content of the article"
+        },
+        {
+          "name": "metadata",
+          "type": "object",
+          "description": "Additional metadata about the article (type, manufacturer, etc.)"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "description": "Tags associated with the article"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "description": "URL to the article on the RSI website"
+        }
+      ]
+    },
+    {
+      "name": "category",
+      "description": "Retrieve articles from a specific Galactapedia category",
+      "path": "/galactapedia/category/{categoryName}",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "categoryName",
+          "type": "string",
+          "required": true,
+          "description": "The name of the category to retrieve articles from (e.g., spacecraft, planets, people, history, military)"
+        }
+      ],
+      "responseFields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique identifier for the article"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the article"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Brief description of the article"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "description": "Tags associated with the article"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "description": "URL to the article on the RSI website"
+        }
+      ]
+    },
+    {
+      "name": "categories",
+      "description": "Retrieve a list of all available Galactapedia categories",
+      "path": "/galactapedia",
+      "method": "GET",
+      "parameters": [],
+      "responseFields": [
+        {
+          "name": "name",
+          "type": "string",
+          "description": "Unique identifier for the category"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Display name of the category"
+        },
+        {
+          "name": "article_count",
+          "type": "integer",
+          "description": "Number of articles in the category"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "description": "URL to the category on the RSI website"
+        }
+      ]
+    }
+  ]
+}

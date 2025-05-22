@@ -1,0 +1,95 @@
+{
+  "name": "citizens",
+  "description": "Retrieve Star Citizen character profiles from the RSI website",
+  "baseUrl": "https://robertsspaceindustries.com",
+  "resources": [
+    {
+      "name": "profile",
+      "description": "Retrieve a citizen's profile information by handle",
+      "path": "/en/citizens/{handle}",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "handle",
+          "type": "string",
+          "required": true,
+          "description": "The citizen's handle name"
+        }
+      ],
+      "responseProcessor": {
+        "type": "html",
+        "selector": ".profile",
+        "fields": [
+          {
+            "name": "avatar",
+            "selector": ".thumb img",
+            "type": "attribute",
+            "attribute": "src"
+          },
+          {
+            "name": "name",
+            "selector": ".info .entry:nth-child(1) .value",
+            "type": "text"
+          },
+          {
+            "name": "handle",
+            "selector": ".info .entry:nth-child(2) .value",
+            "type": "text"
+          },
+          {
+            "name": "rank",
+            "selector": ".info .entry:nth-child(3) .value",
+            "type": "text"
+          },
+          {
+            "name": "rankImage",
+            "selector": ".info .entry:nth-child(3) .icon img",
+            "type": "attribute",
+            "attribute": "src"
+          },
+          {
+            "name": "enlisted",
+            "selector": "div.left-col:nth-of-type(2) .inner .entry:has(.label:contains('Enlisted')) .value",
+            "type": "text"
+          },
+          {
+            "name": "location",
+            "selector": "div.left-col:nth-of-type(2) .inner .entry:has(.label:contains('Location')) .value",
+            "type": "text"
+          },
+          {
+            "name": "fluency",
+            "selector": "div.left-col:nth-of-type(2) .inner .entry:has(.label:contains('Fluency')) .value",
+            "type": "text"
+          },
+          {
+            "name": "bio",
+            "selector": ".right-col .entry.bio .value",
+            "type": "text"
+          },
+          {
+            "name": "mainOrg",
+            "selector": ".main-org .info .entry:nth-child(1) .value",
+            "type": "text"
+          },
+          {
+            "name": "mainOrgSID",
+            "selector": ".main-org .info .entry:nth-child(2) .value",
+            "type": "text"
+          },
+          {
+            "name": "mainOrgRank",
+            "selector": ".main-org .info .entry:nth-child(3) .value",
+            "type": "text"
+          },
+          {
+            "name": "mainOrgLogo",
+            "selector": ".main-org .thumb img",
+            "type": "attribute",
+            "attribute": "src"
+          }
+        ]
+      }
+    }
+  ]
+}

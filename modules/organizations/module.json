@@ -1,0 +1,158 @@
+{
+  "name": "organizations",
+  "description": "Retrieve Star Citizen organization information from the RSI website",
+  "baseUrl": "https://robertsspaceindustries.com",
+  "resources": [
+    {
+      "name": "profile",
+      "description": "Retrieve an organization's profile information by SID",
+      "path": "/en/orgs/{sid}",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "sid",
+          "type": "string",
+          "required": true,
+          "description": "The organization's SID (Spectrum Identification)"
+        }
+      ],
+      "responseProcessor": {
+        "type": "html",
+        "selector": "#organization",
+        "fields": [
+          {
+            "name": "name",
+            "selector": "h1",
+            "type": "text"
+          },
+          {
+            "name": "sid",
+            "selector": "h1 .symbol",
+            "type": "text"
+          },
+          {
+            "name": "logo",
+            "selector": ".logo img",
+            "type": "attribute",
+            "attribute": "src"
+          },
+          {
+            "name": "banner",
+            "selector": ".banner img",
+            "type": "attribute",
+            "attribute": "src"
+          },
+          {
+            "name": "background",
+            "selector": "#post-background",
+            "type": "attribute",
+            "attribute": "style",
+            "transform": "url\\('([^']+)'\\)"
+          },
+          {
+            "name": "memberCount",
+            "selector": ".logo .count",
+            "type": "text"
+          },
+          {
+            "name": "model",
+            "selector": ".tags .model",
+            "type": "text"
+          },
+          {
+            "name": "commitment",
+            "selector": ".tags .commitment",
+            "type": "text"
+          },
+          {
+            "name": "roleplay",
+            "selector": ".tags .roleplay",
+            "type": "text"
+          },
+          {
+            "name": "primaryFocus",
+            "selector": ".focus .primary img",
+            "type": "attribute",
+            "attribute": "alt"
+          },
+          {
+            "name": "secondaryFocus",
+            "selector": ".focus .secondary img",
+            "type": "attribute",
+            "attribute": "alt"
+          },
+          {
+            "name": "description",
+            "selector": ".join-us .body",
+            "type": "text"
+          },
+          {
+            "name": "history",
+            "selector": "#tab-history .markitup-text",
+            "type": "html"
+          },
+          {
+            "name": "manifesto",
+            "selector": "#tab-manifesto .markitup-text",
+            "type": "html"
+          },
+          {
+            "name": "charter",
+            "selector": "#tab-charter .markitup-text",
+            "type": "html"
+          },
+          {
+            "name": "cover",
+            "selector": ".content.block.cover img",
+            "type": "attribute",
+            "attribute": "src"
+          }
+        ]
+      }
+    },
+    {
+      "name": "members",
+      "description": "Retrieve an organization's members list",
+      "path": "/en/orgs/{sid}/members",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "sid",
+          "type": "string",
+          "required": true,
+          "description": "The organization's SID (Spectrum Identification)"
+        }
+      ],
+      "responseProcessor": {
+        "type": "html",
+        "selector": ".member-item",
+        "isArray": true,
+        "fields": [
+          {
+            "name": "handle",
+            "selector": ".nick .value",
+            "type": "text"
+          },
+          {
+            "name": "rank",
+            "selector": ".rank .value",
+            "type": "text"
+          },
+          {
+            "name": "stars",
+            "selector": ".stars",
+            "type": "attribute",
+            "attribute": "class",
+            "transform": "stars-(\\d+)"
+          },
+          {
+            "name": "avatar",
+            "selector": ".thumb img",
+            "type": "attribute",
+            "attribute": "src"
+          }
+        ]
+      }
+    }
+  ]
+}

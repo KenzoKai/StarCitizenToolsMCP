@@ -1,0 +1,22 @@
+{
+  "name": "StarCitizenTools",
+  "description": "Star Citizen information server with data from the Star Citizen Tools wiki and RSI website",
+  "modules": [
+    {
+      "name": "wiki",
+      "source": "./modules/wiki/module.json"
+    },
+    {
+      "name": "citizens",
+      "source": "./modules/citizens/module.json"
+    },
+    {
+      "name": "organizations",
+      "source": "./modules/organizations/module.json"
+    },
+    {
+      "name": "galactapedia",
+      "source": "./modules/galactapedia/module.json"
+    }
+  ]
+}

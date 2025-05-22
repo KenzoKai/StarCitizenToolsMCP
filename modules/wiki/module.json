@@ -1,0 +1,83 @@
+{
+  "name": "wiki",
+  "description": "Star Citizen Tools Wiki information",
+  "baseUrl": "https://starcitizen.tools",
+  "resources": [
+    {
+      "name": "wiki_page",
+      "description": "Retrieves information from a specific wiki page",
+      "path": "/api.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "action",
+          "type": "string",
+          "default": "parse",
+          "description": "MediaWiki API action"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "required": true,
+          "description": "The name of the wiki page to retrieve"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "default": "json",
+          "description": "Response format"
+        },
+        {
+          "name": "prop",
+          "type": "string",
+          "default": "text",
+          "description": "What information to get"
+        },
+        {
+          "name": "redirects",
+          "type": "string",
+          "default": "1",
+          "description": "Follow redirects"
+        }
+      ]
+    },
+    {
+      "name": "search",
+      "description": "Search for articles on the Star Citizen Tools wiki",
+      "path": "/api.php",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "action",
+          "type": "string",
+          "default": "query",
+          "description": "MediaWiki API action"
+        },
+        {
+          "name": "list",
+          "type": "string",
+          "default": "search",
+          "description": "Type of query list"
+        },
+        {
+          "name": "srsearch",
+          "type": "string",
+          "required": true,
+          "description": "Search term"
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "default": "json",
+          "description": "Response format"
+        },
+        {
+          "name": "srlimit",
+          "type": "string",
+          "default": "10",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    }
+  ]
+}
