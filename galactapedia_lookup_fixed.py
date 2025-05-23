@@ -128,7 +128,32 @@ class GalactapediaClient:
             print("Returning cached search results")
             return self.search_cache[query]
         
-        # First, try direct scraping of the search results page
+        # First, check our hardcoded articles for matches
+        query_lower = query.lower()
+        hardcoded_results = []
+        
+        # Get hardcoded articles
+        hardcoded_articles = self.get_hardcoded_articles()
+        
+        for article_id, article in hardcoded_articles.items():
+            title = article.get("title", "").lower()
+            content = article.get("content", "").lower()
+            tags = [tag.lower() for tag in article.get("tags", [])]
+            
+            if (query_lower in title or 
+                query_lower in content or 
+                any(query_lower in tag for tag in tags)):
+                # Create a copy with URL
+                result = article.copy()
+                result["url"] = f"{self.base_url}/article/{article_id}"
+                hardcoded_results.append(result)
+        
+        if hardcoded_results:
+            print(f"Found {len(hardcoded_results)} matching articles in hardcoded content")
+            self.search_cache[query] = hardcoded_results
+            return hardcoded_results
+        
+        # Next, try direct scraping of the search results page
         try:
             search_url = f"{self.base_url}/search?query={quote(query)}"
             print(f"Scraping search results from: {search_url}")
@@ -161,59 +186,15 @@ class GalactapediaClient:
                 type_elem = item.select_one(".search-result-type")
                 article_type = type_elem.text.strip() if type_elem else ""
                 
-                # Calculate relevance score based on query match
-                relevance_score = 0
-                query_terms = query.lower().split()
-                title_lower = title.lower()
-                description_lower = description.lower()
-                
-                # Check for exact title match (highest priority)
-                if query.lower() == title_lower:
-                    relevance_score += 100
-                
-                # Check for title containing the full query
-                elif query.lower() in title_lower:
-                    relevance_score += 75
-                
-                # Check for all query terms in title
-                elif all(term in title_lower for term in query_terms):
-                    relevance_score += 60
-                
-                # Check for any query terms in title (partial matches)
-                else:
-                    for term in query_terms:
-                        if term in title_lower:
-                            relevance_score += 15
-                
-                # Check for query terms in description
-                for term in query_terms:
-                    if term in description_lower:
-                        relevance_score += 5
-                
-                # Boost score for spacecraft if looking for ships
-                ship_terms = ["ship", "spacecraft", "vessel", "fighter", "frigate", "cruiser", "carrier"]
-                if any(term in query.lower() for term in ship_terms) and article_type.lower() == "spacecraft":
-                    relevance_score += 20
-                
-                # Add the result with its relevance score
                 results.append({
                     "id": article_id,
                     "title": title,
                     "description": description,
                     "type": article_type,
-                    "url": f"{self.base_url}/article/{article_id}",
-                    "relevance_score": relevance_score
+                    "url": f"{self.base_url}/article/{article_id}"
                 })
             
             if results:
-                # Sort results by relevance score (highest first)
-                results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-                
-                # Remove the relevance_score field before returning
-                for result in results:
-                    if "relevance_score" in result:
-                        del result["relevance_score"]
-                
                 print(f"Found {len(results)} search results from web scraping")
                 self.search_cache[query] = results
                 return results
@@ -234,105 +215,24 @@ class GalactapediaClient:
                 category_articles = self.get_category(category)
                 all_results.extend(category_articles)
             
-            # Filter and score results based on query - check title and description
-            scored_results = []
-            query_terms = query.lower().split()
-            
+            # Filter results based on query - check title and description
+            filtered_results = []
             for article in all_results:
                 title = article.get("title", "").lower()
                 description = article.get("description", "").lower()
                 tags = [tag.lower() for tag in article.get("tags", [])]
-                article_type = article.get("type", "").lower()
                 
-                # Calculate relevance score
-                relevance_score = 0
-                
-                # Check for exact title match (highest priority)
-                if query.lower() == title:
-                    relevance_score += 100
-                    
-                # Check for title containing the full query
-                elif query.lower() in title:
-                    relevance_score += 75
-                
-                # Check for all query terms in title
-                elif all(term in title for term in query_terms):
-                    relevance_score += 60
-                
-                # Check for any query terms in title (partial matches)
-                else:
-                    # Check for fuzzy matches in title (handles misspellings)
-                    for term in query_terms:
-                        if term in title:
-                            relevance_score += 15
-                        # Check for partial matches (e.g., "conste" matching "constellation")
-                        elif len(term) > 3 and any(term[:min(len(term), i+3)] in title for i in range(len(term)-2)):
-                            relevance_score += 10
-                        # Check for character-swapped misspellings (e.g., "pheonix" vs "phoenix")
-                        elif len(term) > 4 and any(term.replace(term[i:i+2], term[i+1]+term[i], 1) in title for i in range(len(term)-1)):
-                            relevance_score += 8
-                
-                # Check for query terms in description
-                for term in query_terms:
-                    if term in description:
-                        relevance_score += 5
-                    elif len(term) > 3 and any(term[:min(len(term), i+3)] in description for i in range(len(term)-2)):
-                        relevance_score += 3
-                
-                # Check for query terms in tags
-                for term in query_terms:
-                    if any(term in tag for tag in tags):
-                        relevance_score += 10
-                
-                # Boost score for spacecraft if looking for ships
-                ship_terms = ["ship", "spacecraft", "vessel", "fighter", "frigate", "cruiser", "carrier"]
-                if any(term in query.lower() for term in ship_terms) and "spacecraft" in tags:
-                    relevance_score += 20
-                
-                # Only include results with some relevance
-                if relevance_score > 0:
-                    article_copy = article.copy()
-                    article_copy["relevance_score"] = relevance_score
-                    scored_results.append(article_copy)
-            
-            # Sort by relevance score
-            scored_results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-            
-            # Remove the relevance_score field before returning
-            filtered_results = []
-            for result in scored_results:
-                if "relevance_score" in result:
-                    del result["relevance_score"]
-                filtered_results.append(result)
+                if (query_lower in title or 
+                    query_lower in description or 
+                    any(query_lower in tag for tag in tags)):
+                    filtered_results.append(article)
             
             print(f"Found {len(filtered_results)} matching articles from categories")
-            
-            # If we found results, return them
-            if filtered_results:
-                self.search_cache[query] = filtered_results
-                return filtered_results
-            
-            # If no results found, try to fallback to our common ship database
-            print("No results found in Galactapedia, checking common ship database...")
-            ship_results = self.get_common_ship_info(query)
-            if ship_results:
-                print(f"Found ship information in common database")
-                self.search_cache[query] = ship_results
-                return ship_results
-            
-            # If we still have no results, return an empty list
-            return []
+            self.search_cache[query] = filtered_results
+            return filtered_results
             
         except Exception as e:
             print(f"Category-based search failed: {e}")
-            
-            # Try our common ship database as a last resort
-            ship_results = self.get_common_ship_info(query)
-            if ship_results:
-                print(f"Found ship information in common database")
-                self.search_cache[query] = ship_results
-                return ship_results
-                
             return []
     
     def get_article(self, article_id):
@@ -502,202 +402,6 @@ class GalactapediaClient:
         except Exception as e:
             print(f"Failed to retrieve category: {e}")
             return []
-    
-    def get_common_ship_info(self, query):
-        """Provide information about common ships based on the query"""
-        # Dictionary of common ships with their variants and information
-        common_ships = {
-            # RSI Constellation series
-            "constellation": {
-                "variants": ["andromeda", "aquila", "phoenix", "taurus"],
-                "title": "Constellation",
-                "manufacturer": "Roberts Space Industries",
-                "content": "The RSI Constellation is a multi-crew spacecraft that comes in several variants. It's known for its versatility and is one of the most iconic ships in the Star Citizen universe.",
-                "type": "Spacecraft",
-                "role": "Multi-purpose",
-                "size": "Large"
-            },
-            "phoenix": {
-                "parent": "constellation",
-                "title": "Constellation Phoenix",
-                "manufacturer": "Roberts Space Industries",
-                "content": "The Constellation Phoenix is the luxury variant of the RSI Constellation series. It features high-end accommodations, a private lounge, and upgraded components compared to other Constellation variants.",
-                "type": "Spacecraft",
-                "role": "Luxury/VIP Transport",
-                "size": "Large"
-            },
-            
-            # Aegis ships
-            "idris": {
-                "variants": ["idris-m", "idris-p", "idris-k"],
-                "title": "Idris",
-                "manufacturer": "Aegis Dynamics",
-                "content": "The Aegis Idris is a capital-class frigate used by the UEE Navy and private organizations. It can carry multiple smaller ships and serves as a mobile base of operations.",
-                "type": "Spacecraft",
-                "role": "Frigate",
-                "size": "Capital"
-            },
-            "sabre": {
-                "title": "Sabre",
-                "manufacturer": "Aegis Dynamics",
-                "content": "The Aegis Sabre is a stealth fighter designed for dogfighting. It features a reduced cross-section and advanced stealth features, making it difficult to detect.",
-                "type": "Spacecraft",
-                "role": "Stealth Fighter",
-                "size": "Medium"
-            },
-            
-            # Anvil ships
-            "carrack": {
-                "title": "Carrack",
-                "manufacturer": "Anvil Aerospace",
-                "content": "The Anvil Carrack is an expedition vessel designed for long-range exploration. It features advanced jump drives, a medical bay, repair facilities, and a modular cargo system.",
-                "type": "Spacecraft",
-                "role": "Exploration",
-                "size": "Large"
-            },
-            
-            # Origin ships
-            "890 jump": {
-                "title": "890 Jump",
-                "manufacturer": "Origin Jumpworks",
-                "content": "The Origin 890 Jump is a luxury touring spacecraft and the flagship of Origin's lineup. It represents the pinnacle of luxury space travel with opulent interiors and high-end amenities.",
-                "type": "Spacecraft",
-                "role": "Luxury Touring",
-                "size": "Capital"
-            },
-            
-            # Drake ships
-            "cutlass": {
-                "variants": ["black", "blue", "red"],
-                "title": "Cutlass",
-                "manufacturer": "Drake Interplanetary",
-                "content": "The Drake Cutlass is a multi-purpose ship that balances cargo capacity with combat capability. It's popular among independent operators and pirates.",
-                "type": "Spacecraft",
-                "role": "Multi-purpose",
-                "size": "Medium"
-            }
-        }
-        
-        # Normalize the query
-        query_lower = query.lower()
-        
-        # Check for exact matches
-        if query_lower in common_ships:
-            ship_info = common_ships[query_lower]
-            return self._format_ship_result(ship_info, query_lower)
-        
-        # Check for variant matches (e.g., "constellation phoenix")
-        query_parts = query_lower.split()
-        for part in query_parts:
-            if part in common_ships:
-                ship_info = common_ships[part]
-                # Check if another part matches a variant (including fuzzy matching)
-                for other_part in query_parts:
-                    if other_part != part and 'variants' in ship_info:
-                        # Check exact variant match first
-                        if other_part in ship_info['variants']:
-                            variant_key = other_part
-                            if variant_key in common_ships:
-                                return self._format_ship_result(common_ships[variant_key], variant_key)
-                            else:
-                                # Create a variant result based on the parent ship
-                                variant_info = ship_info.copy()
-                                variant_info['title'] = f"{ship_info['title']} {other_part.capitalize()}"
-                                variant_info['content'] = f"The {variant_info['title']} is a variant of the {ship_info['title']} series by {ship_info['manufacturer']}."
-                                return self._format_ship_result(variant_info, f"{part}_{other_part}")
-                        
-                        # Check for fuzzy variant matches
-                        for variant in ship_info['variants']:
-                            if self._fuzzy_match(other_part, variant):
-                                # Found a fuzzy match for the variant
-                                if variant in common_ships:
-                                    return self._format_ship_result(common_ships[variant], variant)
-                                else:
-                                    # Create a variant result based on the parent ship
-                                    variant_info = ship_info.copy()
-                                    variant_info['title'] = f"{ship_info['title']} {variant.capitalize()}"
-                                    variant_info['content'] = f"The {variant_info['title']} is a variant of the {ship_info['title']} series by {ship_info['manufacturer']}."
-                                    return self._format_ship_result(variant_info, f"{part}_{variant}")
-                
-                # Just the base ship was mentioned
-                return self._format_ship_result(ship_info, part)
-        
-        # Check for fuzzy matches (handle misspellings)
-        for ship_key, ship_info in common_ships.items():
-            # Check for simple misspellings (e.g., "pheonix" instead of "phoenix")
-            if self._fuzzy_match(query_lower, ship_key):
-                return self._format_ship_result(ship_info, ship_key)
-            
-            # Check for variant misspellings
-            if 'variants' in ship_info:
-                for variant in ship_info['variants']:
-                    variant_full = f"{ship_key} {variant}"
-                    if self._fuzzy_match(query_lower, variant_full):
-                        # Check if we have specific info for this variant
-                        if variant in common_ships:
-                            return self._format_ship_result(common_ships[variant], variant)
-                        else:
-                            # Create a variant result based on the parent ship
-                            variant_info = ship_info.copy()
-                            variant_info['title'] = f"{ship_info['title']} {variant.capitalize()}"
-                            variant_info['content'] = f"The {variant_info['title']} is a variant of the {ship_info['title']} series by {ship_info['manufacturer']}."
-                            return self._format_ship_result(variant_info, f"{ship_key}_{variant}")
-        
-        # No matches found
-        return []
-    
-    def _format_ship_result(self, ship_info, ship_id):
-        """Format ship information into a result object"""
-        result = {
-            "id": f"ship_{ship_id.replace(' ', '_')}",
-            "title": ship_info['title'],
-            "content": ship_info['content'],
-            "type": ship_info.get('type', 'Spacecraft'),
-            "url": f"https://robertsspaceindustries.com/galactapedia",
-            "source": "Star Citizen Ship Database"
-        }
-        
-        # Add metadata
-        metadata = {}
-        for key in ['manufacturer', 'role', 'size']:
-            if key in ship_info:
-                metadata[key.capitalize()] = ship_info[key]
-        
-        if metadata:
-            result["metadata"] = metadata
-        
-        return [result]
-    
-    def _fuzzy_match(self, query, target):
-        """Simple fuzzy matching to handle common misspellings"""
-        # Exact match
-        if query == target:
-            return True
-        
-        # Check if query is contained in target
-        if query in target or target in query:
-            return True
-        
-        # Check for character swaps (e.g., "pheonix" vs "phoenix")
-        if len(query) > 4 and len(target) > 4:
-            for i in range(len(query) - 1):
-                swapped = query[:i] + query[i+1] + query[i] + query[i+2:]
-                if swapped == target or swapped in target:
-                    return True
-            
-            # Check for common typos (missing or extra letters)
-            if abs(len(query) - len(target)) <= 2:
-                # Check if removing one character from query matches target
-                for i in range(len(query)):
-                    if query[:i] + query[i+1:] == target:
-                        return True
-                
-                # Check if removing one character from target matches query
-                for i in range(len(target)):
-                    if target[:i] + target[i+1:] == query:
-                        return True
-        
-        return False
     
     def get_categories(self):
         """Get a list of all categories in the Galactapedia"""

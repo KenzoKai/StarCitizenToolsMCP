@@ -1,9 +1,18 @@
 import json
-import requests
 import argparse
 import os
 import sys
-from requests.exceptions import RequestException, Timeout, ConnectionError
+import importlib.util
+
+# Import specialized modules dynamically when needed
+def import_module_from_file(module_name, file_path):
+    """Import a module from file path dynamically"""
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 class MCPClient:
     def __init__(self, server_config_path):
@@ -54,7 +63,7 @@ class MCPClient:
         """Call a specific resource with parameters"""
         if params is None:
             params = {}
-            
+        
         if module_name not in self.modules:
             print(f"Module '{module_name}' not found")
             return None
@@ -70,49 +79,174 @@ class MCPClient:
             print(f"Resource '{resource_name}' not found in module '{module_name}'")
             return None
         
-        # Build the URL
-        base_url = module.get('baseUrl', '')
-        path = resource.get('path', '/')
-        url = f"{base_url}{path}"
+        # Use specialized lookup scripts based on the module
+        if module_name == 'citizens' and resource_name == 'profile':
+            # Use citizen_lookup.py for citizen profiles
+            return self._call_citizen_lookup(params)
         
-        # Prepare parameters
-        request_params = {}
-        for param in resource.get('parameters', []):
-            param_name = param['name']
-            if param_name in params:
-                request_params[param_name] = params[param_name]
-            elif 'default' in param:
-                request_params[param_name] = param['default']
-            elif param.get('required', False):
-                print(f"Missing required parameter: {param_name}")
+        elif module_name == 'organizations':
+            # Use org_lookup.py for organization profiles and members
+            return self._call_org_lookup(resource_name, params)
+        
+        elif module_name == 'galactapedia':
+            # Use galactapedia_lookup.py for Galactapedia resources
+            return self._call_galactapedia_lookup(resource_name, params)
+        
+        elif module_name == 'wiki':
+            # Use simple_example.py for wiki resources
+            return self._call_wiki_lookup(resource_name, params)
+        
+        else:
+            print(f"No specialized handler for module '{module_name}', resource '{resource_name}'")
+            return None
+    
+    def _call_citizen_lookup(self, params):
+        """Use citizen_lookup.py to retrieve citizen profiles"""
+        if 'handle' not in params:
+            print("Error: Missing required parameter 'handle'")
+            return None
+        
+        handle = params['handle']
+        print(f"Using citizen_lookup.py to retrieve profile for: {handle}")
+        
+        # Import the citizen_lookup module
+        citizen_module = import_module_from_file('citizen_lookup', 'citizen_lookup.py')
+        if not citizen_module:
+            print("Error: Could not import citizen_lookup.py")
+            return None
+        
+        # Call the get_citizen_profile function
+        try:
+            profile = citizen_module.get_citizen_profile(handle)
+            if profile:
+                # Save to JSON file (this is done in the main function of citizen_lookup.py)
+                # but we'll do it here for consistency
+                with open(f"{handle}_profile.json", 'w') as f:
+                    json.dump(profile, f, indent=2)
+                return profile
+            else:
+                print(f"Error: Could not retrieve profile for {handle}")
                 return None
+        except Exception as e:
+            print(f"Error calling get_citizen_profile: {e}")
+            return None
+    
+    def _call_org_lookup(self, resource_name, params):
+        """Use org_lookup.py to retrieve organization profiles and members"""
+        if 'sid' not in params:
+            print("Error: Missing required parameter 'sid'")
+            return None
         
-        # Make the request
-        method = resource.get('method', 'GET')
-        print(f"Making {method} request to {url} with parameters: {request_params}")
+        sid = params['sid']
+        print(f"Using org_lookup.py to retrieve {resource_name} for organization: {sid}")
+        
+        # Import the org_lookup module
+        org_module = import_module_from_file('org_lookup', 'org_lookup.py')
+        if not org_module:
+            print("Error: Could not import org_lookup.py")
+            return None
         
         try:
-            if method.upper() == 'GET':
-                response = requests.get(url, params=request_params, timeout=10)
-            elif method.upper() == 'POST':
-                response = requests.post(url, json=request_params, timeout=10)
+            if resource_name == 'profile':
+                # Call the get_organization_profile function
+                org_data = org_module.get_organization_profile(sid)
+                if org_data:
+                    # Save to JSON file
+                    with open(f"{sid}_profile.json", 'w') as f:
+                        json.dump(org_data, f, indent=2)
+                    return org_data
+            elif resource_name == 'members':
+                # Call the get_organization_members function
+                members = org_module.get_organization_members(sid)
+                if members:
+                    # Save to JSON file
+                    with open(f"{sid}_members.json", 'w') as f:
+                        json.dump(members, f, indent=2)
+                    return members
             else:
-                print(f"Unsupported method: {method}")
+                print(f"Error: Unsupported resource '{resource_name}' for organizations module")
                 return None
+        except Exception as e:
+            print(f"Error calling org_lookup functions: {e}")
+            return None
+    
+    def _call_galactapedia_lookup(self, resource_name, params):
+        """Use galactapedia_lookup.py to retrieve Galactapedia resources"""
+        # Import the galactapedia_lookup module
+        galactapedia_module = import_module_from_file('galactapedia_lookup', 'galactapedia_lookup.py')
+        if not galactapedia_module:
+            print("Error: Could not import galactapedia_lookup.py")
+            return None
+        
+        try:
+            # Create a GalactapediaClient instance
+            client = galactapedia_module.GalactapediaClient()
             
-            response.raise_for_status()
-            return response.json()
-        except Timeout:
-            print("Error: Request timed out. The server took too long to respond.")
+            if resource_name == 'search':
+                if 'query' not in params:
+                    print("Error: Missing required parameter 'query'")
+                    return None
+                query = params['query']
+                print(f"Using galactapedia_lookup.py to search for: {query}")
+                return client.search_articles(query)
+            
+            elif resource_name == 'article':
+                if 'articleId' not in params:
+                    print("Error: Missing required parameter 'articleId'")
+                    return None
+                article_id = params['articleId']
+                print(f"Using galactapedia_lookup.py to retrieve article: {article_id}")
+                return client.get_article(article_id)
+            
+            elif resource_name == 'category':
+                if 'categoryName' not in params:
+                    print("Error: Missing required parameter 'categoryName'")
+                    return None
+                category_name = params['categoryName']
+                print(f"Using galactapedia_lookup.py to retrieve category: {category_name}")
+                return client.get_category(category_name)
+            
+            elif resource_name == 'categories':
+                print("Using galactapedia_lookup.py to retrieve all categories")
+                return client.get_categories()
+            
+            else:
+                print(f"Error: Unsupported resource '{resource_name}' for galactapedia module")
+                return None
+        except Exception as e:
+            print(f"Error calling galactapedia_lookup functions: {e}")
             return None
-        except ConnectionError:
-            print("Error: Connection failed. Please check your internet connection.")
+    
+    def _call_wiki_lookup(self, resource_name, params):
+        """Use simple_example.py to retrieve wiki resources"""
+        # Import the simple_example module
+        wiki_module = import_module_from_file('simple_example', 'simple_example.py')
+        if not wiki_module:
+            print("Error: Could not import simple_example.py")
             return None
-        except RequestException as e:
-            print(f"Error making request: {e}")
-            return None
-        except json.JSONDecodeError:
-            print("Error: Could not parse the response as JSON.")
+        
+        try:
+            if resource_name == 'search':
+                if 'srsearch' not in params:
+                    print("Error: Missing required parameter 'srsearch'")
+                    return None
+                query = params['srsearch']
+                print(f"Using simple_example.py to search wiki for: {query}")
+                return wiki_module.search_wiki(query)
+            
+            elif resource_name == 'wiki_page':
+                if 'page' not in params:
+                    print("Error: Missing required parameter 'page'")
+                    return None
+                page = params['page']
+                print(f"Using simple_example.py to retrieve wiki page: {page}")
+                return wiki_module.get_wiki_page(page)
+            
+            else:
+                print(f"Error: Unsupported resource '{resource_name}' for wiki module")
+                return None
+        except Exception as e:
+            print(f"Error calling simple_example functions: {e}")
             return None
 
 def main():
